@@ -1,9 +1,13 @@
 import express from 'express';
 import cors from 'cors';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 import { GoogleGenAI } from '@google/genai';
 import 'dotenv/config';
 
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {cors : { origin: '*'}});
 
 // 1. CORS 및 JSON 설정
 app.use(cors());
@@ -46,6 +50,7 @@ app.post('/beacon', (req, res) => {
   console.log('--- 📱 안드로이드 비콘 데이터 수신 ---');
   console.log(req.body);
   latestBeacon = req.body;
+  io.emit('location_update', latestBeacon);
   res.send({ success: true });
 });
 
@@ -91,7 +96,7 @@ app.post('/chat', async (req, res) => {
 });
 
 // 서버 포트 3000번 실행
-app.listen(3000, () => {
+httpServer.listen(3000, () => {
   console.log('==================================================');
   console.log('🚀 Guidant 서버가 3000번 포트에서 가동 중입니다.');
   console.log('👉 안드로이드 전송 주소: http://컴퓨터IP:3000/beacon');
