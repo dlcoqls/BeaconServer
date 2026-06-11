@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import { GoogleGenAI } from '@google/genai';
+import Groq from 'groq-sdk';
 import 'dotenv/config';
 
 const app = express();
@@ -12,30 +12,17 @@ const io = new Server(httpServer, {cors : { origin: '*'}});
 app.use(cors());
 app.use(express.json());
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-// ✅ 새로 추가된 함수 (429 에러 자동 재시도)
-async function generateWithRetry(prompt, retries = 3) {
-  for (let i = 0; i < retries; i++) {
-    try {
-      return await ai.models.generateContent({
-        model: 'gemini-2.0-flash-lite',
-        contents: prompt,
-        config: {
-          systemInstruction: '당신은 전통시장 및 AI 실습실 가이드 도우미 "Guidant"입니다. 친절하고 간결하게 한국어로 답변해주세요.',
-        },
-      });
-    } catch (err) {
-      const is429 = err.status === 429;
-      const canRetry = i < retries - 1;
-      if (is429 && canRetry) {
-        console.warn(`⚠️ 요청 한도 초과. 45초 후 재시도... (${i + 1}/${retries})`);
-        await new Promise(res => setTimeout(res, 45000));
-      } else {
-        throw err;
-      }
-    }
-  }
+async function generateWithRetry(prompt) {
+  const response = await groq.chat.completions.create({
+    model: 'llama-3.3-70b-versatile',
+    messages: [
+      { role: 'system', content: '당신은 전통시장 및 AI 실습실 가이드 도우미 "Guidant"입니다. 친절하고 간결하게 한국어로 답변해주세요.' },
+      { role: 'user', content: prompt }
+    ],
+  });
+  return { text: response.choices[0].message.content };
 }
 
 let latestBeacon = null;
